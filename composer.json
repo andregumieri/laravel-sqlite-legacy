@@ -1,0 +1,27 @@
+{
+    "name": "andregumieri/laravel-sqlite-legacy",
+    "description": "A legacy connection for SQLite in Laravel 11",
+    "type": "library",
+    "autoload": {
+        "psr-4": {
+            "AndreGumieri\\LaravelSqliteLegacy\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Andre Gumieri de Freitas",
+            "email": "andregumieri@gmail.com"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [
+                "AndreGumieri\\LaravelSqliteLegacy\\ServiceProvider"
+            ]
+        }
+    },
+    "require": {
+        "illuminate/database": "^11",
+        "illuminate/filesystem": "^11"
+    }
+}
