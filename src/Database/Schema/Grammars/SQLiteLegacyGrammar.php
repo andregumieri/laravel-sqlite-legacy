@@ -12,7 +12,6 @@ use Illuminate\Support\Fluent;
 
 class SQLiteLegacyGrammar extends Grammar
 {
-
     /**
      * The possible column modifiers.
      *
@@ -30,8 +29,6 @@ class SQLiteLegacyGrammar extends Grammar
     /**
      * Compile the query to determine if a table exists.
      *
-     * @deprecated Will be removed in a future Laravel version.
-     *
      * @return string
      */
     public function compileTableExists()
@@ -40,70 +37,7 @@ class SQLiteLegacyGrammar extends Grammar
     }
 
     /**
-     * Compile the query to determine if the dbstat table is available.
-     *
-     * @return string
-     */
-    public function compileDbstatExists()
-    {
-        return "select exists (select 1 from pragma_compile_options where compile_options = 'ENABLE_DBSTAT_VTAB') as enabled";
-    }
-
-    /**
-     * Compile the query to determine the tables.
-     *
-     * @param  bool  $withSize
-     * @return string
-     */
-    public function compileTables($withSize = false)
-    {
-        return $withSize
-            ? 'select m.tbl_name as name, sum(s.pgsize) as size from sqlite_master as m '
-            .'join dbstat as s on s.name = m.name '
-            ."where m.type in ('table', 'index') and m.tbl_name not like 'sqlite_%' "
-            .'group by m.tbl_name '
-            .'order by m.tbl_name'
-            : "select name from sqlite_master where type = 'table' and name not like 'sqlite_%' order by name";
-    }
-
-    /**
-     * Compile the query to determine the views.
-     *
-     * @return string
-     */
-    public function compileViews()
-    {
-        return "select name, sql as definition from sqlite_master where type = 'view' order by name";
-    }
-
-    /**
-     * Compile the SQL needed to retrieve all table names.
-     *
-     * @deprecated Will be removed in a future Laravel version.
-     *
-     * @return string
-     */
-    public function compileGetAllTables()
-    {
-        return 'select type, name from sqlite_master where type = \'table\' and name not like \'sqlite_%\'';
-    }
-
-    /**
-     * Compile the SQL needed to retrieve all view names.
-     *
-     * @deprecated Will be removed in a future Laravel version.
-     *
-     * @return string
-     */
-    public function compileGetAllViews()
-    {
-        return 'select type, name from sqlite_master where type = \'view\'';
-    }
-
-    /**
      * Compile the query to determine the list of columns.
-     *
-     * @deprecated Will be removed in a future Laravel version.
      *
      * @param  string  $table
      * @return string
@@ -111,57 +45,6 @@ class SQLiteLegacyGrammar extends Grammar
     public function compileColumnListing($table)
     {
         return 'pragma table_info('.$this->wrap(str_replace('.', '__', $table)).')';
-    }
-
-    /**
-     * Compile the query to determine the columns.
-     *
-     * @param  string  $table
-     * @return string
-     */
-    public function compileColumns($table)
-    {
-        return sprintf(
-            'select name, type, not "notnull" as "nullable", dflt_value as "default", pk as "primary", 0 as "extra" '
-            .'from pragma_table_info(%s) order by cid asc',
-            $this->wrap(str_replace('.', '__', $table))
-        );
-    }
-
-    /**
-     * Compile the query to determine the indexes.
-     *
-     * @param  string  $table
-     * @return string
-     */
-    public function compileIndexes($table)
-    {
-        return sprintf(
-            'select "primary" as name, group_concat(col) as columns, 1 as "unique", 1 as "primary" '
-            .'from (select name as col from pragma_table_info(%s) where pk > 0 order by pk, cid) group by name '
-            .'union select name, group_concat(col) as columns, "unique", origin = "pk" as "primary" '
-            .'from (select il.*, ii.name as col from pragma_index_list(%s) il, pragma_index_info(il.name) ii order by il.seq, ii.seqno) '
-            .'group by name, "unique", "primary"',
-            $table = $this->wrap(str_replace('.', '__', $table)),
-            $table
-        );
-    }
-
-    /**
-     * Compile the query to determine the foreign keys.
-     *
-     * @param  string  $table
-     * @return string
-     */
-    public function compileForeignKeys($table)
-    {
-        return sprintf(
-            'select group_concat("from") as columns, "table" as foreign_table, '
-            .'group_concat("to") as foreign_columns, on_update, on_delete '
-            .'from (select * from pragma_foreign_key_list(%s) order by id desc, seq) '
-            .'group by id, "table", on_update, on_delete',
-            $this->wrap(str_replace('.', '__', $table))
-        );
     }
 
     /**
@@ -314,6 +197,35 @@ class SQLiteLegacyGrammar extends Grammar
     }
 
     /**
+     * Compile the query to determine the columns.
+     *
+     * @param  string  $table
+     * @return string
+     */
+    public function compileColumns($table)
+    {
+        return sprintf(
+            'PRAGMA table_info(%s)',
+            $this->wrap(str_replace('.', '__', $table))
+        );
+    }
+
+    /**
+     * Compile the query to determine the SQL text that describes the given object.
+     *
+     * @param  string  $name
+     * @param  string  $type
+     * @return string
+     */
+    public function compileSqlCreateStatement($name, $type = 'table')
+    {
+        return sprintf('select "sql" from sqlite_master where type = %s and name = %s',
+            $this->wrap($type),
+            $this->wrap(str_replace('.', '__', $name))
+        );
+    }
+
+    /**
      * Compile a spatial index key command.
      *
      * @param  \Illuminate\Database\Schema\Blueprint  $blueprint
@@ -381,6 +293,26 @@ class SQLiteLegacyGrammar extends Grammar
     public function compileDropAllViews()
     {
         return "delete from sqlite_master where type in ('view')";
+    }
+
+    /**
+     * Compile the SQL needed to retrieve all table names.
+     *
+     * @return string
+     */
+    public function compileGetAllTables()
+    {
+        return 'select type, name from sqlite_master where type = \'table\' and name not like \'sqlite_%\'';
+    }
+
+    /**
+     * Compile the SQL needed to retrieve all view names.
+     *
+     * @return string
+     */
+    public function compileGetAllViews()
+    {
+        return 'select type, name from sqlite_master where type = \'view\'';
     }
 
     /**
@@ -1017,7 +949,7 @@ class SQLiteLegacyGrammar extends Grammar
         }
 
         if (! is_null($virtualAs = $column->virtualAs)) {
-            return " as ({$this->getValue($virtualAs)})";
+            return " as ({$virtualAs})";
         }
     }
 
@@ -1039,7 +971,7 @@ class SQLiteLegacyGrammar extends Grammar
         }
 
         if (! is_null($storedAs = $column->storedAs)) {
-            return " as ({$this->getValue($column->storedAs)}) stored";
+            return " as ({$column->storedAs}) stored";
         }
     }
 
@@ -1103,20 +1035,5 @@ class SQLiteLegacyGrammar extends Grammar
         [$field, $path] = $this->wrapJsonFieldAndPath($value);
 
         return 'json_extract('.$field.$path.')';
-    }
-
-    /**
-     * Compile the query to determine the SQL text that describes the given object.
-     *
-     * @param  string  $name
-     * @param  string  $type
-     * @return string
-     */
-    public function compileSqlCreateStatement($name, $type = 'table')
-    {
-        return sprintf('select "sql" from sqlite_master where type = %s and name = %s',
-            $this->wrap($type),
-            $this->wrap(str_replace('.', '__', $name))
-        );
     }
 }
